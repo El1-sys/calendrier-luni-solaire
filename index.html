@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calendrier Luni-Solaire Scientifique (2020-2040) - Métriques Avancées</title>
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --main-color-lunar: #f9d71c;      /* Jaune/Or (Lunaire) */
+            --secondary-color-lunar: #66ccff; /* Bleu Céleste */
+            --main-color-gregorian: #00ff99;  /* Vert (Grégorien) */
+            --secondary-color-gregorian: #ff6666; /* Rouge (PL/NL) */
+            --section-bg: #1a1e27;
+            --text-color: #e0e0e0;
+            --wheel-size: 380px; 
+            --intercalaire-bg: #9c1d1d; 
+            --perigee-color: #ff9933; /* Orange */
+            --apogee-color: #999999; /* Gris */
+            --solstice-color: #ff4500; /* Solstice/Équinoxe */
+            --panel-width: 350px; /* Augmenté pour les données */
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+
+        h1 { color: var(--main-color-lunar); text-align: center; font-size: 1.8em; }
+
+        /* --- CONTENEUR GLOBAL DES DEUX CALENDRIERS + PANEL --- */
+        #main-container {
+            display: flex;
+            justify-content: center;
+            gap: 30px; 
+            margin-top: 30px;
+            width: 100%; 
+            max-width: 1350px;
+            flex-wrap: wrap; 
+        }
+
+        /* --- CONTENEURS INDIVIDUELS DE ROUES --- */
+        .calendar-wrapper {
+            position: relative;
+            width: var(--wheel-size);
+            height: var(--wheel-size);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex-shrink: 0; 
+            margin-bottom: 20px; 
+        }
+        
+        .wheel-base {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            background-color: var(--section-bg);
+            transition: transform 0.6s ease-in-out;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Styles Spécifiques des Jours Grégoriens */
+        .gregorian-day {
+            position: absolute;
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            font-size: 0.6em;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            color: #ccc;
+            background-color: rgba(30, 34, 43, 0.8);
+            border: 1px solid #444;
+            transition: background-color 0.1s, transform 0.3s;
+        }
+        .gregorian-day.pl { background-color: var(--secondary-color-gregorian); color: white; border: 2px solid white; font-weight: bold;} 
+        .gregorian-day.nl { background-color: #4CAF50; color: white; font-weight: bold;} 
+        .gregorian-day.pq { background-color: #ffcc00; color: #111; font-weight: bold; border: 1px solid #222; }
+        .gregorian-day.dq { background-color: #66ccff; color: #111; font-weight: bold; border: 1px solid #222; }
+
+        .gregorian-day.selected-day {
+            background-color: var(--main-color-gregorian);
+            color: var(--bg-color);
+            font-weight: bold;
+            box-shadow: 0 0 8px var(--main-color-gregorian);
+            border: 2px solid var(--bg-color);
+            transform: scale(1.3);
+            z-index: 10;
+        }
+        .gregorian-day.solstice-equinox {
+            background-color: var(--solstice-color);
+            color: white;
+            font-weight: bold;
+            border: 2px solid white;
+            transform: scale(1.2);
+            box-shadow: 0 0 10px var(--solstice-color);
+        }
+        .gregorian-day.perigee-day { border: 2px solid var(--perigee-color); box-shadow: 0 0 5px var(--perigee-color);}
+        .gregorian-day.apogee-day { border: 2px solid var(--apogee-color); box-shadow: 0 0 5px var(--apogee-color);}
+
+        .luna-segment {
+            position: absolute;
+            width: 70px; 
+            height: 70px;
+            text-align: center;
+            cursor: pointer;
+            border-radius: 50%;
+            transition: background-color 0.3s, transform 0.6s;
+            font-size: 0.7em;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(30, 34, 43, 0.8);
+            border: 1px solid var(--secondary-color-lunar);
+        }
+        .luna-segment span.name { font-weight: bold; color: var(--secondary-color-lunar); display: block; font-size: 1em; }
+        .luna-segment.active { background-color: var(--main-color-lunar); color: var(--bg-color); box-shadow: 0 0 10px var(--main-color-lunar); transform: scale(1.15) !important; z-index: 5; }
+        .luna-segment.active span.name { color: var(--bg-color); }
+
+        #gregorian-month-ring {
+            position: absolute;
+            width: 65%;
+            height: 65%;
+            border-radius: 50%;
+            pointer-events: none; 
+            z-index: 2;
+        }
+        .month-segment {
+            position: absolute;
+            width: 80px;
+            height: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 0.7em;
+            font-weight: bold;
+            color: var(--main-color-gregorian);
+            background: rgba(10, 15, 25, 0.6);
+            border-radius: 5px;
+            padding: 2px;
+            pointer-events: none;
+        }
+
+        .center-display {
+            position: absolute;
+            width: 130px;
+            height: 130px;
+            background-color: var(--bg-color);
+            border: 3px solid var(--secondary-color-lunar);
+            border-radius: 50%;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 5px;
+            box-shadow: 0 0 15px rgba(102, 204, 255, 0.5);
+            font-size: 0.7em;
+        }
+        .center-display h2 { margin: 0; font-size: 1.1em; color: var(--main-color-lunar); }
+        .center-display p { margin: 5px 0 0 0; color: var(--text-color); }
+        
+        #controls { margin-top: 20px; display: flex; gap: 20px; align-items: center; flex-wrap: wrap; justify-content: center;}
+        .nav-button { background-color: var(--secondary-color-lunar); color: var(--bg-color); border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; font-size: 1em; font-weight: bold; transition: background-color 0.3s; }
+        .nav-button:hover { background-color: #4da0cc; }
+        #cycle-selector, #date-picker-input { 
+            padding: 8px; border-radius: 4px; background-color: var(--section-bg); color: var(--text-color); 
+            border: 1px solid var(--secondary-color-lunar); font-size: 1em; cursor: pointer; 
+        }
+        .date-control-group { display: flex; align-items: center; gap: 10px; }
+        .geo-control-group { 
+            display: flex; flex-direction: column; gap: 5px; 
+            padding: 8px; border: 1px solid var(--main-color-lunar); border-radius: 5px;
+            background-color: #10141b;
+        }
+        .geo-control-group div { display: flex; align-items: center; gap: 5px; }
+
+        /* FILTER BOX */
+        #phase-filter-box {
+            padding: 10px;
+            border-radius: 6px;
+            background-color: #111318;
+            border: 2px solid #444;
+            color: #ddd;
+        }
+        #phase-filter-box label { display: block; font-size: 0.9em; margin-bottom: 6px; }
+        #phase-filter-box input[type="checkbox"] { transform: scale(1.1); margin-right: 6px; }
+
+        /* PANNEAU DÉTAILS SCIENTIFIQUES */
+        #details-panel {
+            width: var(--panel-width);
+            background-color: var(--section-bg);
+            border: 3px solid var(--main-color-gregorian);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 0 20px rgba(0, 255, 153, 0.1);
+            max-height: 550px;
+            overflow-y: auto;
+            flex-shrink: 0; 
+        }
+        #details-panel h3 {
+            color: var(--main-color-gregorian);
+            border-bottom: 2px solid var(--secondary-color-lunar);
+            padding-bottom: 5px;
+            margin-top: 15px;
+            font-size: 1.2em;
+        }
+        .detail-label { font-weight: bold; color: var(--text-color); margin-right: 5px; }
+        .detail-value { color: var(--secondary-color-lunar); }
+        #luna-theme-summary { font-style: italic; color: #a0a0a0; padding: 10px; background-color: #10141b; border-left: 3px solid var(--main-color-lunar); }
+        #gregorian-day-details .detail-value { color: var(--main-color-gregorian); }
+        #moon-age-display { font-size: 1.1em; color: var(--secondary-color-gregorian); font-weight: bold; }
+        
+        #moon-image-container {
+            text-align: center;
+            margin: 15px 0;
+            padding: 10px;
+            border: 1px solid #333;
+            border-radius: 8px;
+            background-color: #10141b;
+        }
+        #moon-image {
+            width: 100px; 
+            height: 100px; 
+            border-radius: 50%;
+            box-shadow: 0 0 15px rgba(249, 215, 28, 0.7);
+            background-color: #000;
+        }
+        
+        /* Styles pour les nouvelles données astronomiques */
+        .distance-perigee { color: var(--perigee-color); font-weight: bold; }
+        .distance-apogee { color: var(--apogee-color); font-weight: bold; }
+        .solstice-info { color: var(--solstice-color); font-weight: bold; }
+
+        /* Hidden when filter applies */
+        .hidden-by-filter { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <h1>Double Calendrier Luni-Solaire Scientifique (2020-2040)</h1>
+    <p style="text-align: center; color: #a0a0a0;">
+        Métriques de phase, position, et distance Terre-Lune.
+    </p>
+
+    <div id="controls">
+        <select id="cycle-selector" onchange="changeCycle()">
+        </select>
+        <button class="nav-button" onclick="goToCurrentDay()">Aller au Jour Actuel</button>
+        <div class="date-control-group">
+            <label for="date-picker-input" class="detail-label">Jour Séléctionné :</label>
+            <input type="date" id="date-picker-input" onchange="selectSpecificDate()">
+        </div>
+        
+        <div class="geo-control-group">
+            <label class="detail-label" style="text-align: center;">Localisation (UTC):</label>
+            <div>
+                <label for="latitude">Lat. :</label>
+                <input type="number" id="latitude" value="48.85" min="-90" max="90" step="0.01" style="width: 70px;">
+            </div>
+            <div>
+                <label for="longitude">Lon. :</label>
+                <input type="number" id="longitude" value="2.35" min="-180" max="180" step="0.01" style="width: 70px;">
+            </div>
+            <button class="nav-button" onclick="openSkyMap()" style="background-color: #2d8cff;">Carte du Ciel 🌐</button>
+        </div>
+
+        <div id="phase-filter-box" title="Filtrer les jours selon la phase lunaire (affiche/masque les marqueurs PL/NL/PQ/DQ)">
+            <label style="font-weight:bold; color: #ffd966;">Filtre de Phase Lunaire :</label>
+            <label><input type="checkbox" id="filter-pl" checked onchange="applyPhaseFilter()"> Pleine Lune (PL)</label>
+            <label><input type="checkbox" id="filter-nl" checked onchange="applyPhaseFilter()"> Nouvelle Lune (NL)</label>
+            <label><input type="checkbox" id="filter-pq" checked onchange="applyPhaseFilter()"> Premier Quartier (PQ)</label>
+            <label><input type="checkbox" id="filter-dq" checked onchange="applyPhaseFilter()"> Dernier Quartier (DQ)</label>
+        </div>
+    </div>
+
+    <div id="main-container">
+        
+        <div class="calendar-wrapper">
+            <h2>Calendrier Luni-Solaire (Gaulois)</h2>
+            <div id="lunar-wheel" class="wheel-base">
+                <div class="center-display">
+                    <h2 id="lunar-center-name">...</h2>
+                    <p id="lunar-center-dates">...</p>
+                    <p id="intercalary-status" style="font-weight: bold;"></p>
+                </div>
+            </div>
+            <div style="margin-top: 10px;">
+                <button class="nav-button" onclick="navigateLuna(-1)">← Luna Précédente</button>
+                <button class="nav-button" onclick="navigateLuna(1)">Luna Suivante →</button>
+            </div>
+        </div>
+        
+        <div class="calendar-wrapper">
+            <h2>Calendrier Grégorien (<span id="gregorian-year-display">...</span>)</h2>
+            <div id="gregorian-wheel" class="wheel-base">
+                <div id="gregorian-month-ring"></div>
+                <div class="center-display">
+                    <h2 id="gregorian-center-date">...</h2>
+                    <p id="gregorian-center-phase">...</p>
+                    <p id="gregorian-center-luna">...</p>
+                </div>
+            </div>
+        </div>
+        
+        <div id="details-panel" class="details-panel">
+            <h3 id="panel-title">Métriques Astronomiques</h3>
+            
+            <div id="moon-image-container">
+                <img id="moon-image" src="" alt="Image de la phase lunaire actuelle">
+            </div>
+
+            <div id="astronomic-details">
+                <h3>Jour Sélectionné (UTC)</h3>
+                <p><span class="detail-label">Date/Heure :</span> <span id="detail-gregorian-date" class="detail-value">...</span></p>
+                <p><span class="detail-label">Phase :</span> <span id="detail-gregorian-phase" class="detail-value">...</span></p>
+                <p><span class="detail-label">Jour Julien (JD) :</span> <span id="detail-julian-date" class="detail-value">...</span></p>
+                <p><span class="detail-label">Âge Lunaire :</span> <span id="moon-age-display">...</span></p>
+            </div>
+            
+            <div id="orbital-details">
+                <h3>Données Orbitales</h3>
+                <p><span class="detail-label">Distance Terre-Lune :</span> <span id="detail-distance">...</span></p>
+                <p><span class="detail-label">Rapprochement :</span> <span id="detail-perigee-status" class="detail-value">...</span></p>
+            </div>
+            
+            <div id="luna-details">
+                <h3>Contexte Luni-Solaire</h3>
+                <p><span class="detail-label">Nom Gaulois :</span> <span id="detail-luna-name" class="detail-value">...</span></p>
+                <p><span class="detail-label">Traduction :</span> <span id="detail-luna-fr" class="detail-value">...</span></p>
+                <p id="luna-theme-summary">...</p>
+            </div>
+            </div>
+        
+    </div>
+
+
+    <script>
+        // =======================================================
+        // I. DONNÉES ET CONSTANTES ASTRONOMIQUES ET CULTUELLES
+        // =======================================================
+        const SYNODIC_MONTH = 29.53058885;
+        // Corrected standard phase ages (in days)
+        const NEW_MOON_AGE = 0.0;
+        const FIRST_QUARTER_AGE = SYNODIC_MONTH * 0.25; // ~7.3826
+        const FULL_MOON_AGE = SYNODIC_MONTH * 0.5;     // ~14.7653
+        const LAST_QUARTER_AGE = SYNODIC_MONTH * 0.75; // ~22.1479
+
+        const ANOMALISTIC_MONTH = 27.55455; // Période de distance Terre-Lune
+        const MEAN_DISTANCE_KM = 384400;
+        const DISTANCE_VARIATION_KM = 25000; // Variation pour l'approximation Perigee/Apogee
+        // Reference full moon (pl) around J2000 used previously
+        const REFERENCE_PL_DATE = new Date('2000-01-06T18:14:00Z'); 
+
+        // Jours des Solstices et Équinoxes précis (UTC) 2020-2040
+        const SOLSTICE_EQUINOXES = {
+            2020: {VE: '2020-03-20T03:49:00Z', SE: '2020-06-20T21:44:00Z', AE: '2020-09-22T13:31:00Z', WS: '2020-12-21T10:02:00Z'},
+            2021: {VE: '2021-03-20T09:37:00Z', SE: '2021-06-21T03:32:00Z', AE: '2021-09-22T19:21:00Z', WS: '2021-12-21T15:59:00Z'},
+            2022: {VE: '2022-03-20T15:33:00Z', SE: '2022-06-21T09:13:00Z', AE: '2022-09-23T01:04:00Z', WS: '2022-12-21T21:48:00Z'},
+            2023: {VE: '2023-03-20T21:24:00Z', SE: '2023-06-21T14:58:00Z', AE: '2023-09-23T06:50:00Z', WS: '2023-12-22T03:27:00Z'},
+            2024: {VE: '2024-03-20T03:07:00Z', SE: '2024-06-20T20:51:00Z', AE: '2024-09-22T12:44:00Z', WS: '2024-12-21T09:20:00Z'},
+            2025: {VE: '2025-03-20T09:02:00Z', SE: '2025-06-21T02:42:00Z', AE: '2025-09-22T18:19:00Z', WS: '2025-12-21T15:03:00Z'},
+            2026: {VE: '2026-03-20T14:46:00Z', SE: '2026-06-21T08:24:00Z', AE: '2026-09-23T00:05:00Z', WS: '2026-12-21T20:50:00Z'},
+            2027: {VE: '2027-03-20T20:25:00Z', SE: '2027-06-21T14:10:00Z', AE: '2027-09-23T06:01:00Z', WS: '2027-12-22T02:42:00Z'},
+            2028: {VE: '2028-03-20T02:17:00Z', SE: '2028-06-20T20:00:00Z', AE: '2028-09-22T11:45:00Z', WS: '2028-12-21T08:19:00Z'},
+            2029: {VE: '2029-03-20T08:01:00Z', SE: '2029-06-21T01:48:00Z', AE: '2029-09-22T17:37:00Z', WS: '2029-12-21T14:14:00Z'},
+            2030: {VE: '2030-03-20T13:51:00Z', SE: '2030-06-21T07:31:00Z', AE: '2030-09-22T23:26:00Z', WS: '2030-12-21T20:09:00Z'},
+            2031: {VE: '2031-03-20T19:41:00Z', SE: '2031-06-21T13:21:00Z', AE: '2031-09-23T05:15:00Z', WS: '2031-12-22T01:55:00Z'},
+            2032: {VE: '2032-03-20T01:21:00Z', SE: '2032-06-20T19:10:00Z', AE: '2032-09-22T11:10:00Z', WS: '2032-12-21T07:56:00Z'},
+            2033: {VE: '2033-03-20T07:22:00Z', SE: '2033-06-21T01:00:00Z', AE: '2033-09-22T16:51:00Z', WS: '2033-12-21T13:45:00Z'},
+            2034: {VE: '2034-03-20T13:10:00Z', SE: '2034-06-21T06:51:00Z', AE: '2034-09-22T22:40:00Z', WS: '2034-12-21T19:33:00Z'},
+            2035: {VE: '2035-03-20T18:58:00Z', SE: '2035-06-21T12:47:00Z', AE: '2035-09-23T04:38:00Z', WS: '2035-12-22T01:30:00Z'},
+            2036: {VE: '2036-03-20T00:41:00Z', SE: '2036-06-20T18:41:00Z', AE: '2036-09-22T10:22:00Z', WS: '2036-12-21T07:12:00Z'},
+            2037: {VE: '2037-03-20T06:44:00Z', SE: '2037-06-21T00:26:00Z', AE: '2037-09-22T16:22:00Z', WS: '2037-12-21T13:08:00Z'},
+            2038: {VE: '2038-03-20T12:30:00Z', SE: '2038-06-21T06:19:00Z', AE: '2038-09-22T22:08:00Z', WS: '2038-12-21T19:54:00Z'},
+            2039: {VE: '2039-03-20T18:18:00Z', SE: '2039-06-21T12:13:00Z', AE: '2039-09-23T03:59:00Z', WS: '2039-12-22T01:40:00Z'},
+            2040: {VE: '2040-03-20T00:10:00Z', SE: '2040-06-20T18:07:00Z', AE: '2040-09-22T09:44:00Z', WS: '2040-12-21T07:03:00Z'},
+        }; 
+
+        const LUNAE_NAMES = [
+            { id: 1, name: "Luna dewenna", fr: "Renouveau", theme: "Célébration du renouveau et des esprits de la nature. Période post-solstice d'hiver." },
+            { id: 2, name: "Luna nasci", fr: "Germination", theme: "Éveil de la nature et préparation des sols. Le cycle de la croissance commence." },
+            { id: 3, name: "Luna aeris", fr: "Vent Croissant", theme: "Période de vents et de transition vers le printemps. Énergie en expansion." },
+            { id: 4, name: "Luna florana", fr: "Floraison", theme: "L'apogée du printemps. Célébration des fleurs et de la fertilité." },
+            { id: 5, name: "Luna abunda", fr: "Abondance", theme: "Début de la période d'abondance et de l'énergie solaire maximale." },
+            { id: 6, name: "Luna cretana", fr: "Croissance", theme: "Consolidation de la croissance et préparation à l'été. Les jours sont les plus longs." },
+            { id: 7, name: "Luna solsticia", fr: "Solstice d'été", theme: "Luna du Solstice. Le point culminant de la lumière et de la chaleur." },
+            { id: 8, name: "Luna precus", fr: "Récoltes Premières", theme: "Début des récoltes (moissons précoces) et actions de grâce." },
+            { id: 9, name: "Luna messana", fr: "Moisson", theme: "Période intense de moisson et de stockage des vivres." },
+            { id: 10, name: "Luna autumna", fr: "Automne Tardif", theme: "Transition vers l'automne. Célébration des fruits mûrs et des réserves." },
+            { id: 11, name: "Luna finalis", fr: "Récolte Finale", theme: "Fin des grandes récoltes. Préparation à l'obscurité et au repos de la terre." },
+            { id: 12, name: "Luna umbra", fr: "Descente des Ombres", theme: "Les nuits s'allongent. Période de réflexion et de préparation à l'hiver." },
+            { id: 13, name: "Luna longa", fr: "Nuit Longue", theme: "Luna de la nuit la plus longue. Fin du cycle et attente du renouveau." },
+        ];
+        
+        let cycleData = {}; 
+        let currentCycle = 0; 
+        let currentLunaIndex = 0; 
+        let moonPhases = {}; 
+        let gregorianDaysMap = {}; 
+        
+        const START_YEAR_CALC = 2020; 
+        const END_YEAR_CALC = 2040;   
+
+        // =======================================================
+        // II. FONCTIONS UTILITAIRES ASTRONOMIQUES AVANCÉES
+        // (Calculs d'approximation basés sur les Jours Juliens)
+        // =======================================================
+
+        function getDayKey(date) {
+            return date.toISOString().split('T')[0];
+        }
+
+        function formatDateTime(date) {
+            const options = { day: 'numeric', month: 'long', year: 'numeric' };
+            return date.toLocaleDateString('fr-FR', options);
+        }
+
+        function formatDateTimeFull(date) {
+            const options = { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short', timeZone: 'UTC' };
+            return date.toLocaleDateString('fr-FR', options).replace('UTC', 'UTC');
+        }
+
+        function calculateJulianDate(date) {
+            const timeInMs = date.getTime();
+            const a = Math.floor((14 - date.getUTCMonth()) / 12);
+            const y = date.getUTCFullYear() + 4800 - a;
+            const m = date.getUTCMonth() + 1 + 12 * a - 3;
+            const jdn = date.getUTCDate() + Math.floor((153 * m + 2) / 5) + 365 * y + Math.floor(y / 4) - Math.floor(y / 100) + Math.floor(y / 400) - 32045;
+            let jd = jdn - 0.5;
+            const fraction = (date.getUTCHours() - 12) / 24 + date.getUTCMinutes() / 1440 + date.getUTCSeconds() / 86400;
+            return (jd + fraction);
+        }
+
+        function getLunarDistance(jd) {
+            const jdReference = 2451545.0;
+            const daysSinceJ2000 = jd - jdReference;
+            const initialAnomalyPhase = 139.75 / 360; 
+            const phase = (daysSinceJ2000 / ANOMALISTIC_MONTH + initialAnomalyPhase) % 1;
+            const distance = MEAN_DISTANCE_KM + DISTANCE_VARIATION_KM * Math.cos(2 * Math.PI * phase);
+            let status = '';
+            if (distance < MEAN_DISTANCE_KM - 5000) { status = 'Périgée (Rapprochement)'; }
+            else if (distance > MEAN_DISTANCE_KM + 5000) { status = 'Apogée (Éloignement)'; }
+            else { status = 'Neutre'; }
+            return { distance: distance, status: status };
+        }
+
+        function getMoonAge(date) {
+            const diffMs = date.getTime() - REFERENCE_PL_DATE.getTime();
+            let phaseDay = (diffMs / (1000 * 60 * 60 * 24)) % SYNODIC_MONTH;
+            if (phaseDay < 0) { phaseDay += SYNODIC_MONTH; }
+            return phaseDay;
+        }
+
+        function getPhaseDetailsFromAge(age) {
+            if (age >= (FULL_MOON_AGE - 0.9) && age <= (FULL_MOON_AGE + 0.9)) return { name: 'Pleine Lune', imageKey: 'pl' }; 
+            if (age < 1.8 || age > SYNODIC_MONTH - 1.8) return { name: 'Nouvelle Lune', imageKey: 'nl' };
+            if (age >= 1.8 && age < 5.5) return { name: 'Croissant de Lune (Croissante)', imageKey: 'wax_crescent' };
+            if (age >= 5.5 && age < 9.2) return { name: 'Premier Quartier', imageKey: 'first_quarter' };
+            if (age >= 9.2 && age < (FULL_MOON_AGE - 0.9)) return { name: 'Lune Gibbeuse (Croissante)', imageKey: 'wax_gibbous' };
+            if (age >= (FULL_MOON_AGE + 0.9) && age < 20.3) return { name: 'Lune Gibbeuse (Décroissante)', imageKey: 'wan_gibbous' };
+            if (age >= 20.3 && age < 24.0) return { name: 'Dernier Quartier', imageKey: 'last_quarter' };
+            if (age >= 24.0 && age < 27.7) return { name: 'Croissant de Lune (Décroissante)', imageKey: 'wan_crescent' };
+            return { name: 'Phase Indéterminée', imageKey: 'unknown' };
+        }
+        
+        function findNextMoonPhase(date, phaseAgeTarget) {
+            const age = getMoonAge(date);
+            let daysUntilPhase = (age < phaseAgeTarget) ? phaseAgeTarget - age : SYNODIC_MONTH - age + phaseAgeTarget;
+            const msUntilPhase = daysUntilPhase * (1000 * 60 * 60 * 24);
+            return new Date(date.getTime() + msUntilPhase);
+        }
+        function findNextFullMoon(date) { return findNextMoonPhase(date, FULL_MOON_AGE); }
+
+        function findSolsticeAnchorPL(year) {
+            const solsticeAnchor = new Date(Date.UTC(year, 11, 21, 12, 0, 0)); 
+            let searchStart = new Date(solsticeAnchor.getTime() - 20 * 24 * 60 * 60 * 1000); 
+            let anchorPL = findNextFullMoon(searchStart);
+
+            for(let i = 0; i < 3; i++) {
+                const prevPL = findNextFullMoon(new Date(anchorPL.getTime() - SYNODIC_MONTH * 24 * 60 * 60 * 1000 - 1000));
+                const nextPL = findNextFullMoon(new Date(anchorPL.getTime() + 1000));
+
+                const currentMinDiff = Math.abs(anchorPL.getTime() - solsticeAnchor.getTime());
+                const prevDiff = Math.abs(prevPL.getTime() - solsticeAnchor.getTime());
+                const nextDiff = Math.abs(nextPL.getTime() - solsticeAnchor.getTime());
+
+                if (prevDiff < currentMinDiff) {
+                    anchorPL = prevPL;
+                } else if (nextDiff < currentMinDiff) {
+                    anchorPL = nextPL;
+                } else {
+                    break;
+                }
+            }
+            return anchorPL;
+        }
+
+        function getLunarCycle(cycleYear) {
+            const startAnchorPL = findSolsticeAnchorPL(cycleYear - 1); 
+            const endAnchorPL = findSolsticeAnchorPL(cycleYear); 
+            
+            let currentPL = new Date(startAnchorPL);
+            let lunationCount = 0;
+
+            while (currentPL < endAnchorPL) {
+                lunationCount++;
+                currentPL = findNextFullMoon(new Date(currentPL.getTime() + 1000));
+            }
+            
+            currentPL = new Date(startAnchorPL);
+            const totalPLsToCalculate = lunationCount;
+            
+            let finalFullMoons = [startAnchorPL];
+            let lastPL = startAnchorPL;
+            for (let i = 1; i <= totalPLsToCalculate; i++) {
+                lastPL = findNextFullMoon(new Date(lastPL.getTime() + 1000));
+                finalFullMoons.push(lastPL);
+            }
+
+            const lunations = [];
+            const isIntercalary = (lunationCount === 13);
+            const maxLunes = lunationCount;
+
+            for(let i = 0; i < maxLunes; i++) {
+                const lunaData = LUNAE_NAMES[i % LUNAE_NAMES.length]; 
+                const startPL = finalFullMoons[i];
+                const endPL = finalFullMoons[i + 1];
+
+                lunations.push({
+                    index: i, id: lunaData.id, name: lunaData.name, fr: lunaData.fr,
+                    theme: lunaData.theme, startPL: startPL, endPL: endPL, isIntercalary: isIntercalary
+                });
+                
+                let currentDay = new Date(startPL);
+                while (currentDay < endPL) {
+                    gregorianDaysMap[getDayKey(currentDay)] = { lunaIndex: i, cycleYear: cycleYear };
+                    currentDay = new Date(currentDay.getTime() + 24 * 60 * 60 * 1000);
+                }
+            }
+            
+            return { lunations: lunations, isIntercalary: isIntercalary, count: maxLunes, cycleYear: cycleYear };
+        }
+        
+        function generateAllCycles() {
+            gregorianDaysMap = {}; 
+            const selector = document.getElementById('cycle-selector');
+            selector.innerHTML = ''; 
+            
+            for (let year = START_YEAR_CALC; year <= END_YEAR_CALC; year++) {
+                cycleData[year] = getLunarCycle(year); 
+                const option = document.createElement('option');
+                option.value = year;
+                const cycle = cycleData[year];
+                let textContent = `Cycle ${year} (${cycle.count} Lunes`;
+                if (cycle.isIntercalary) {
+                    textContent += ' - Intercalaire';
+                }
+                textContent += ')';
+                option.textContent = textContent;
+                selector.appendChild(option);
+            }
+            generateAllMoonPhases(START_YEAR_CALC, END_YEAR_CALC);
+        }
+
+        function generateAllMoonPhases(startYear, endYear) {
+            moonPhases = {};
+            let date = new Date(Date.UTC(startYear, 0, 1)); 
+            let endDate = new Date(Date.UTC(endYear + 1, 0, 1)); 
+            
+            // Start from previous full moon to ensure coverage
+            date = findNextFullMoon(new Date(date.getTime() - SYNODIC_MONTH * 24 * 60 * 60 * 1000));
+            
+            while (date < endDate) {
+                const plKey = getDayKey(date);
+                const plYear = date.getFullYear();
+                if (plYear >= startYear && plYear <= endYear) {
+                    if (!moonPhases[plYear]) moonPhases[plYear] = {};
+                    moonPhases[plYear][plKey] = 'PL';
+                }
+                
+                // Compute NL, PQ, DQ relative to this PL (using phase ages)
+                const nlDate = findNextMoonPhase(new Date(date.getTime() + 1000), NEW_MOON_AGE);
+                const pqDate = findNextMoonPhase(new Date(date.getTime() + 1000), FIRST_QUARTER_AGE);
+                const dqDate = findNextMoonPhase(new Date(date.getTime() + 1000), LAST_QUARTER_AGE);
+
+                const nlKey = getDayKey(nlDate);
+                const pqKey = getDayKey(pqDate);
+                const dqKey = getDayKey(dqDate);
+
+                if (nlDate.getFullYear() >= startYear && nlDate.getFullYear() <= endYear) {
+                    if (!moonPhases[nlDate.getFullYear()]) moonPhases[nlDate.getFullYear()] = {};
+                    moonPhases[nlDate.getFullYear()][nlKey] = 'NL';
+                }
+                if (pqDate.getFullYear() >= startYear && pqDate.getFullYear() <= endYear) {
+                    if (!moonPhases[pqDate.getFullYear()]) moonPhases[pqDate.getFullYear()] = {};
+                    // If there's already a PL/NL tag on that day, keep it (PL/NL are primary), else set PQ
+                    if (!moonPhases[pqDate.getFullYear()][pqKey]) moonPhases[pqDate.getFullYear()][pqKey] = 'PQ';
+                }
+                if (dqDate.getFullYear() >= startYear && dqDate.getFullYear() <= endYear) {
+                    if (!moonPhases[dqDate.getFullYear()]) moonPhases[dqDate.getFullYear()] = {};
+                    if (!moonPhases[dqDate.getFullYear()][dqKey]) moonPhases[dqDate.getFullYear()][dqKey] = 'DQ';
+                }
+
+                date = findNextFullMoon(new Date(date.getTime() + 1000));
+            }
+        }
+
+        // =======================================================
+        // III. MODIFICATIONS POUR L'AFFICHAGE (Roues et Panneau)
+        // =======================================================
+        
+        function renderGregorianWheel(year) {
+            const wheel = document.getElementById('gregorian-wheel');
+            const centerDisplay = wheel.querySelector('.center-display');
+            wheel.innerHTML = '';
+            wheel.appendChild(centerDisplay);
+            
+            document.getElementById('gregorian-year-display').textContent = year;
+            
+            const monthRing = document.createElement('div');
+            monthRing.id = 'gregorian-month-ring';
+            wheel.appendChild(monthRing);
+
+            const startDate = new Date(year, 0, 1);
+            const endDate = new Date(year + 1, 0, 1);
+            
+            let totalDays = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+            const angleStep = 360 / totalDays;
+            
+            const outerRadius = 175; 
+            const innerRadius = 125; 
+            
+            const events = SOLSTICE_EQUINOXES[year] || {};
+
+            for (let i = 0; i < totalDays; i++) {
+                const dayDate = new Date(startDate.getTime() + i * 24 * 60 * 60 * 1000);
+                const dayKey = getDayKey(dayDate);
+                const dayOfMonth = dayDate.getDate();
+
+                // Placement du mois
+                if (dayOfMonth === 1) { 
+                    const monthIndex = dayDate.getMonth();
+                    const daysInMonth = (new Date(year, monthIndex + 1, 0)).getDate();
+                    
+                    const monthMidpointDayIndex = i + (daysInMonth / 2) - 0.5; 
+                    
+                    const monthAngle = monthMidpointDayIndex * angleStep;
+                    const monthAngleRad = (monthAngle - 90) * (Math.PI / 180); 
+                    
+                    const monthX = innerRadius * Math.cos(monthAngleRad);
+                    const monthY = innerRadius * Math.sin(monthAngleRad);
+                    
+                    const monthName = dayDate.toLocaleDateString('fr-FR', { month: 'long' });
+
+                    const monthSegment = document.createElement('div');
+                    monthSegment.className = 'month-segment';
+                    monthSegment.textContent = monthName.toUpperCase();
+                    
+                    monthSegment.style.left = `calc(50% + ${monthX}px - 40px)`; 
+                    monthSegment.style.top = `calc(50% + ${monthY}px - 10px)`;  
+                    
+                    monthRing.appendChild(monthSegment);
+                }
+                
+                // PLACEMENT DU JOUR
+                const angle = i * angleStep;
+                const angleRad = (angle - 90 + angleStep / 2) * (Math.PI / 180); 
+
+                const x = outerRadius * Math.cos(angleRad);
+                const y = outerRadius * Math.sin(angleRad);
+                
+                const segment = document.createElement('div');
+                segment.className = 'gregorian-day';
+                segment.setAttribute('data-date', dayKey);
+
+                // Determine phase tag for this day (PL/NL/PQ/DQ or none)
+                const yearPhases = moonPhases[year] || {};
+                let phaseTag = yearPhases[dayKey] || null;
+
+                if (phaseTag === 'PL') {
+                    segment.classList.add('pl');
+                    segment.textContent = 'PL';
+                    segment.setAttribute('data-phase', 'PL');
+                } else if (phaseTag === 'NL') {
+                    segment.classList.add('nl');
+                    segment.textContent = 'NL';
+                    segment.setAttribute('data-phase', 'NL');
+                } else if (phaseTag === 'PQ') {
+                    segment.classList.add('pq');
+                    segment.textContent = 'PQ';
+                    segment.setAttribute('data-phase', 'PQ');
+                } else if (phaseTag === 'DQ') {
+                    segment.classList.add('dq');
+                    segment.textContent = 'DQ';
+                    segment.setAttribute('data-phase', 'DQ');
+                } else {
+                    // mark based on age for intermediate accurate display
+                    const ageDetails = getPhaseDetailsFromAge(getMoonAge(dayDate));
+                    if (ageDetails.imageKey === 'first_quarter') {
+                        segment.classList.add('pq');
+                        segment.textContent = 'PQ';
+                        segment.setAttribute('data-phase', 'PQ');
+                    } else if (ageDetails.imageKey === 'last_quarter') {
+                        segment.classList.add('dq');
+                        segment.textContent = 'DQ';
+                        segment.setAttribute('data-phase', 'DQ');
+                    } else {
+                        segment.textContent = dayOfMonth; 
+                    }
+                }
+
+                // --- MARQUEURS SOLSTICE/ÉQUINOXE ---
+                let isSolsticeEquinox = false;
+                for (const key in events) {
+                    const eventDate = getDayKey(new Date(events[key]));
+                    if (eventDate === dayKey) {
+                        segment.classList.add('solstice-equinox');
+                        segment.setAttribute('title', `${dayOfMonth} ${dayDate.toLocaleDateString('fr-FR', {month: 'short'})} (${key})`);
+                        isSolsticeEquinox = true;
+                        break;
+                    }
+                }
+                
+                if (!isSolsticeEquinox) {
+                    const monthName = dayDate.toLocaleDateString('fr-FR', {month: 'short'}).replace('.', '');
+                    segment.setAttribute('title', `${dayOfMonth} ${monthName} ${year}`);
+                }
+
+                // Ajout des marqueurs Apogée/Périgée (approximation au jour près)
+                const jd = calculateJulianDate(dayDate);
+                const { status } = getLunarDistance(jd);
+                if (status.includes('Périgée')) {
+                    segment.classList.add('perigee-day');
+                } else if (status.includes('Apogée')) {
+                    segment.classList.add('apogee-day');
+                }
+                
+                segment.onclick = () => syncCalendars(dayDate, true); 
+
+                segment.style.left = `calc(50% + ${x}px - 12.5px)`; 
+                segment.style.top = `calc(50% + ${y}px - 12.5px)`; 
+                
+                wheel.appendChild(segment);
+            }
+
+            // Apply current phase filter after rendering
+            applyPhaseFilter();
+        }
+        
+        function renderLunarWheel() {
+            const wheel = document.getElementById('lunar-wheel');
+            const centerDisplay = wheel.querySelector('.center-display');
+            wheel.innerHTML = '';
+            wheel.appendChild(centerDisplay);
+            
+            const cycle = cycleData[currentCycle];
+            const lunations = cycle.lunations;
+            const segmentCount = lunations.length;
+            const angleStep = 360 / segmentCount; 
+            const radius = 150; 
+
+            lunations.forEach((luna, index) => {
+                const angle = index * angleStep; 
+                const angleRad = (angle - 90) * (Math.PI / 180); 
+
+                const x = radius * Math.cos(angleRad);
+                const y = radius * Math.sin(angleRad);
+                
+                const segment = document.createElement('div');
+                segment.className = 'luna-segment';
+                segment.setAttribute('data-index', index);
+                segment.style.left = `calc(50% + ${x}px - 35px)`; 
+                segment.style.top = `calc(50% + ${y}px - 35px)`; 
+                
+                segment.innerHTML = `<span class="name">${luna.id}. ${luna.name}</span>`;
+                segment.onclick = () => syncCalendars(luna.startPL, true, index);
+                wheel.appendChild(segment);
+            });
+            
+            renderGregorianWheel(currentCycle);
+            
+            const initialSyncDate = cycle.lunations[currentLunaIndex].startPL;
+            syncCalendars(initialSyncDate, true, currentLunaIndex);
+        }
+        
+        function syncCalendars(syncDate, updateDisplay = true, forcedLunaIndex = null) {
+            const dateKey = getDayKey(syncDate);
+            const lunarInfo = gregorianDaysMap[dateKey];
+            
+            if (lunarInfo && lunarInfo.cycleYear !== currentCycle) {
+                currentCycle = lunarInfo.cycleYear;
+                document.getElementById('cycle-selector').value = currentCycle;
+                renderLunarWheel(); 
+                syncCalendars(syncDate, updateDisplay, forcedLunaIndex);
+                return; 
+            }
+            if (!cycleData[currentCycle]) return; 
+
+            const cycle = cycleData[currentCycle];
+            let lunaToSelectIndex = forcedLunaIndex;
+
+            if (lunarInfo) {
+                lunaToSelectIndex = lunarInfo.lunaIndex;
+            } else if (lunaToSelectIndex === null) {
+                 for (let i = 0; i < cycle.lunations.length; i++) {
+                    const luna = cycle.lunations[i];
+                    if (syncDate >= luna.startPL && syncDate < luna.endPL) {
+                        lunaToSelectIndex = i;
+                        break;
+                    }
+                }
+            }
+            
+            const year = currentCycle; 
+            const startOfYear = new Date(year, 0, 1);
+            const dayIndex = Math.floor((syncDate.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24));
+            
+            const endDate = new Date(year + 1, 0, 1);
+            const totalDays = Math.round((endDate.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24));
+            const angleStepGregorian = 360 / totalDays;
+            
+            const rotationAngleGregorian = -(dayIndex * angleStepGregorian + (angleStepGregorian / 2));
+            const gregorianWheel = document.getElementById('gregorian-wheel');
+            gregorianWheel.style.transform = `rotate(${rotationAngleGregorian}deg)`;
+            
+            document.querySelectorAll('#gregorian-wheel .gregorian-day, #gregorian-month-ring .month-segment').forEach(seg => {
+                seg.style.transform = `rotate(${-rotationAngleGregorian}deg)`;
+            });
+
+            let activeLuna = null;
+            if (lunaToSelectIndex !== null) {
+                activeLuna = cycle.lunations[lunaToSelectIndex];
+
+                document.querySelectorAll('#lunar-wheel .luna-segment').forEach(seg => { seg.classList.remove('active'); });
+                const activeSegment = document.querySelector(`#lunar-wheel .luna-segment[data-index="${lunaToSelectIndex}"]`);
+                if (activeSegment) {
+                    activeSegment.classList.add('active');
+                    currentLunaIndex = lunaToSelectIndex;
+                }
+                
+                const angleStepLuna = 360 / cycle.lunations.length;
+                const rotationAngleLuna = -(lunaToSelectIndex * angleStepLuna);
+                document.getElementById('lunar-wheel').style.transform = `rotate(${rotationAngleLuna}deg)`;
+            
+                document.querySelectorAll('#lunar-wheel .luna-segment').forEach(seg => { seg.style.transform = `rotate(${-rotationAngleLuna}deg)`; });
+                
+                 if (updateDisplay) {
+                    document.getElementById('lunar-center-name').textContent = `${activeLuna.name.toUpperCase()} (${activeLuna.fr})`;
+                    document.getElementById('lunar-center-dates').textContent = `Déb. PL: ${formatDateTime(activeLuna.startPL)}`;
+                    const statusDiv = document.getElementById('intercalary-status');
+                    statusDiv.textContent = cycle.isIntercalary ? `ANNÉE INTERCALAIRE (${cycle.count} LUNES)` : `ANNÉE STANDARD (12 LUNES)`;
+                    statusDiv.style.color = cycle.isIntercalary ? 'var(--intercalaire-bg)' : 'var(--secondary-color-lunar)';
+                }
+            } else {
+                 document.getElementById('lunar-center-name').textContent = `Hors Cycle (${currentCycle})`;
+                 document.getElementById('lunar-center-dates').textContent = `...`;
+                 document.getElementById('intercalary-status').textContent = `...`;
+            }
+
+            const yearStr = String(syncDate.getFullYear());
+            const monthStr = String(syncDate.getMonth() + 1).padStart(2, '0');
+            const dayStr = String(syncDate.getDate()).padStart(2, '0');
+            document.getElementById('date-picker-input').value = `${yearStr}-${monthStr}-${dayStr}`;
+
+            document.querySelectorAll('#gregorian-wheel .gregorian-day').forEach(day => {
+                day.classList.remove('active-luna', 'selected-day');
+                
+                if (lunaToSelectIndex !== null && activeLuna) {
+                    const dayDate = new Date(day.getAttribute('data-date'));
+                    if (dayDate.getFullYear() === currentCycle && dayDate >= activeLuna.startPL && dayDate < activeLuna.endPL) {
+                        day.classList.add('active-luna');
+                    }
+                }
+                
+                if (day.getAttribute('data-date') === getDayKey(syncDate)) {
+                    day.classList.add('selected-day');
+                }
+            });
+            
+            if (updateDisplay) {
+                const currentLunaName = activeLuna ? activeLuna.name : 'Non applicable';
+                updateGregorianDisplay(syncDate, currentLunaName);
+                updateDetailsPanel(syncDate, activeLuna); 
+            }
+        }
+
+        function updateGregorianDisplay(date, lunaName) {
+            const dateKey = getDayKey(date);
+            const year = date.getFullYear();
+            
+            document.getElementById('gregorian-center-date').textContent = formatDateTime(date);
+            document.getElementById('gregorian-center-luna').textContent = `Luna: ${lunaName.split(' ')[1] || '...'}`;
+            
+            const ageDetails = getPhaseDetailsFromAge(getMoonAge(date));
+            const phase = (moonPhases[year] && moonPhases[year][dateKey]) || ageDetails.name;
+            document.getElementById('gregorian-center-phase').textContent = `Phase: ${phase}`;
+        }
+
+        // =======================================================
+        // IV. LOGIQUE DU PANNEAU DE DÉTAILS SCIENTIFIQUES
+        // =======================================================
+
+        function updateDetailsPanel(syncDate, activeLuna) {
+            const jd = calculateJulianDate(syncDate);
+            const { distance, status } = getLunarDistance(jd);
+            const age = getMoonAge(syncDate);
+            const ageDetails = getPhaseDetailsFromAge(age);
+            const dateKey = getDayKey(syncDate);
+            const year = syncDate.getFullYear();
+
+            const imagePath = `moon_phases/moon_phase_${ageDetails.imageKey}.png`;
+            document.getElementById('moon-image').src = imagePath;
+            document.getElementById('moon-image').alt = `Image de la phase: ${ageDetails.name}`;
+
+            document.getElementById('detail-gregorian-date').textContent = formatDateTimeFull(syncDate);
+            
+            let phaseText = (moonPhases[year] && moonPhases[year][dateKey]);
+            if (!phaseText) {
+                phaseText = ageDetails.name; // Phase calculée
+            } else {
+                phaseText += ` (Heure: ${syncDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' })} UTC)`;
+            }
+            document.getElementById('detail-gregorian-phase').textContent = phaseText; 
+
+            document.getElementById('detail-julian-date').textContent = jd.toFixed(4);
+            document.getElementById('moon-age-display').textContent = age.toFixed(2) + ' jours';
+
+            document.getElementById('detail-distance').textContent = `${(distance / 1000).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, " ")} km`;
+            const perigeeStatusEl = document.getElementById('detail-perigee-status');
+            perigeeStatusEl.textContent = status;
+            perigeeStatusEl.className = status.includes('Périgée') ? 'distance-perigee' : status.includes('Apogée') ? 'distance-apogee' : 'detail-value';
+
+            if (activeLuna) {
+                document.getElementById('detail-luna-name').textContent = activeLuna.name;
+                document.getElementById('detail-luna-fr').textContent = activeLuna.fr;
+                document.getElementById('luna-theme-summary').textContent = `Thème du cycle: ${activeLuna.theme}`;
+            } else {
+                document.getElementById('detail-luna-name').textContent = 'Date hors cycle gaulois affiché.';
+                document.getElementById('detail-luna-fr').textContent = 'N/A';
+                document.getElementById('luna-theme-summary').textContent = 'Sélectionnez une Luna ou une date dans la période active.';
+            }
+        }
+        
+        // =======================================================
+        // V. FILTRE DE PHASE LUNAIRE
+        // =======================================================
+        function applyPhaseFilter() {
+            const showPL = document.getElementById('filter-pl').checked;
+            const showNL = document.getElementById('filter-nl').checked;
+            const showPQ = document.getElementById('filter-pq').checked;
+            const showDQ = document.getElementById('filter-dq').checked;
+
+            document.querySelectorAll('#gregorian-wheel .gregorian-day').forEach(el => {
+                const phase = el.getAttribute('data-phase'); // PL / NL / PQ / DQ or null
+                // By default, non-phase days remain visible
+                let hide = false;
+                if (phase === 'PL' && !showPL) hide = true;
+                if (phase === 'NL' && !showNL) hide = true;
+                if (phase === 'PQ' && !showPQ) hide = true;
+                if (phase === 'DQ' && !showDQ) hide = true;
+
+                if (hide) el.classList.add('hidden-by-filter'); else el.classList.remove('hidden-by-filter');
+            });
+        }
+
+        // =======================================================
+        // VI. NAVIGATION ET INITIALISATION SUPPLÉMENTAIRE
+        // =======================================================
+        
+        function navigateLuna(direction) {
+            if (!cycleData[currentCycle]) return;
+            
+            const lunations = cycleData[currentCycle].lunations;
+            let newIndex = currentLunaIndex + direction;
+
+            if (newIndex < 0) {
+                newIndex = lunations.length - 1; 
+            } else if (newIndex >= lunations.length) {
+                newIndex = 0; 
+            }
+            
+            const newLuna = lunations[newIndex];
+            syncCalendars(newLuna.startPL, true, newIndex); 
+        }
+
+        function changeCycle() {
+            currentCycle = parseInt(document.getElementById('cycle-selector').value);
+            currentLunaIndex = 0; 
+            renderLunarWheel(); 
+        }
+
+        function goToCurrentDay() {
+            const today = new Date();
+            const todayYear = today.getFullYear();
+            
+            if (todayYear >= START_YEAR_CALC && todayYear <= END_YEAR_CALC) {
+                document.getElementById('cycle-selector').value = todayYear;
+                currentCycle = todayYear;
+                
+                let foundLunaIndex = 0;
+                if (cycleData[todayYear]) {
+                    const lunations = cycleData[todayYear].lunations;
+                    for (let i = 0; i < lunations.length; i++) {
+                        const luna = lunations[i];
+                        const todayStartOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+                        if (todayStartOfDay >= new Date(luna.startPL.getFullYear(), luna.startPL.getMonth(), luna.startPL.getDate()) 
+                            && todayStartOfDay < new Date(luna.endPL.getFullYear(), luna.endPL.getMonth(), luna.endPL.getDate())) {
+                            foundLunaIndex = i;
+                            break;
+                        }
+                    }
+                }
+                currentLunaIndex = foundLunaIndex;
+                renderLunarWheel();
+                syncCalendars(today, true, foundLunaIndex);
+            } else {
+                alert(`La date actuelle n'est pas couverte par la plage ${START_YEAR_CALC}-${END_YEAR_CALC}.`);
+            }
+        }
+
+        function selectSpecificDate() {
+            const dateInput = document.getElementById('date-picker-input');
+            const selectedDateStr = dateInput.value;
+            
+            if (selectedDateStr) {
+                const parts = selectedDateStr.split('-');
+                const selectedDate = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2], 12, 0, 0)); 
+                
+                const selectedYear = selectedDate.getFullYear();
+                
+                if (selectedYear >= START_YEAR_CALC && selectedYear <= END_YEAR_CALC) {
+                    
+                    let foundLunaIndex = 0;
+                    if (cycleData[selectedYear]) {
+                         const lunations = cycleData[selectedYear].lunations;
+                         for (let i = 0; i < lunations.length; i++) {
+                            const luna = lunations[i];
+                            if (selectedDate >= luna.startPL && selectedDate < luna.endPL) {
+                                foundLunaIndex = i;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (currentCycle !== selectedYear) {
+                        document.getElementById('cycle-selector').value = selectedYear;
+                        currentCycle = selectedYear;
+                        currentLunaIndex = foundLunaIndex;
+                        renderLunarWheel();
+                    } else {
+                         syncCalendars(selectedDate, true, foundLunaIndex);
+                    }
+                } else {
+                     alert(`La date sélectionnée n'est pas couverte par la plage ${START_YEAR_CALC}-${END_YEAR_CALC}.`);
+                }
+            }
+        }
+
+        function openSkyMap() {
+            const latInput = document.getElementById('latitude');
+            const lonInput = document.getElementById('longitude');
+            const dateInput = document.getElementById('date-picker-input');
+
+            const lat = latInput.value;
+            const lon = lonInput.value;
+            const dateStr = dateInput.value;
+            
+            if (!lat || !lon || isNaN(parseFloat(lat)) || isNaN(parseFloat(lon))) {
+                alert("Veuillez entrer une Latitude et une Longitude valides (nombres).");
+                return;
+            }
+
+            const selectedDate = dateStr ? new Date(dateStr) : new Date();
+            
+            const day = String(selectedDate.getDate()).padStart(2, '0');
+            const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+            const year = selectedDate.getFullYear();
+            
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+
+            const skyMapUrl = `https://www.stelvision.com/carte-ciel/?lat=${lat}&lng=${lon}&date=${day}/${month}/${year}&heure=${hours}:${minutes}`;
+
+            window.open(skyMapUrl, '_blank');
+        }
+
+        // =======================================================
+        // VII. INITIALISATION (MODIFIÉ POUR LA DATE CIBLE)
+        // =======================================================
+
+        window.onload = function() {
+            generateAllCycles();
+            
+            // --- Réglage de la date cible (exemple) ---
+            const TARGET_DATE = new Date(Date.UTC(2025, 10, 26, 18, 34, 0)); 
+            const targetYear = TARGET_DATE.getFullYear();
+            
+            let initialYear = START_YEAR_CALC;
+            if (targetYear >= START_YEAR_CALC && targetYear <= END_YEAR_CALC) {
+                initialYear = targetYear;
+            }
+
+            let foundLunaIndex = 0;
+            if (cycleData[initialYear]) {
+                const lunations = cycleData[initialYear].lunations;
+                for (let i = 0; i < lunations.length; i++) {
+                    const luna = lunations[i];
+                    if (TARGET_DATE >= luna.startPL && TARGET_DATE < luna.endPL) {
+                        foundLunaIndex = i;
+                        break;
+                    }
+                }
+            }
+            
+            currentCycle = initialYear;
+            currentLunaIndex = foundLunaIndex;
+            
+            document.getElementById('cycle-selector').value = currentCycle;
+            renderLunarWheel(); 
+            
+            // Synchronisation avec la date cible
+            syncCalendars(TARGET_DATE, true, foundLunaIndex); 
+
+            // Mise à jour de l'input date pour afficher la date sélectionnée (26/11/2025)
+            const yearStr = String(TARGET_DATE.getFullYear());
+            const monthStr = String(TARGET_DATE.getMonth() + 1).padStart(2, '0');
+            const dayStr = String(TARGET_DATE.getDate()).padStart(2, '0');
+            document.getElementById('date-picker-input').value = `${yearStr}-${monthStr}-${dayStr}`;
+        };
+
+    </script>
+
+</body>
+</html>
